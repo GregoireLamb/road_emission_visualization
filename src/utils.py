@@ -10,13 +10,6 @@ def load_data(path):
     data = pd.read_excel(path)
     return data
 
-def load_data_from_json(path):
-    """
-    Load data from json
-    :return: dataframe
-    """
-    data = json.load(path)
-    return data
 
 def distance_2coord(coord_A, coor_B):
     """
@@ -27,22 +20,20 @@ def distance_2coord(coord_A, coor_B):
     """
     return ((coord_A[0] - coor_B[0]) ** 2 + (coord_A[1] - coor_B[1]) ** 2) ** 0.5
 
-def draw_poly_with_color(poly, CO2m, map, CO2m_max=10000, simple_color=True):
+def draw_poly_with_color(poly, CO2m, map, CO2m_max, CO2m_min, weight=8):
     """
     Draw polygon with color
     :param poly: polyline (list of coordinates)
     :param CO2m: CO2m (list of CO2/m between each coordinate)
     :return: map
     """
-    if simple_color:
-        polyline = PolyLine(locations=poly, color=interpolate_color(CO2m/CO2m_max))
-        polyline.add_to(map)
-        return map
-    colors=[interpolate_color(x/CO2m_max) for x in CO2m]
-    for i in range(len(colors)):
-        polyline = PolyLine(locations=poly[i:i+2], color=colors[i])
-        polyline.add_to(map)
+    polyline = PolyLine(locations=poly,
+                        weight=weight,
+                        tooltip=CO2m,
+                        color=interpolate_color((CO2m-CO2m_min)/(CO2m_max-CO2m_min)))
+    polyline.add_to(map)
     return map
+
 
 def interpolate_color(ratio, color1="FFFF00", color2="CE0000"):
     # Conversion hex vers RGB
@@ -59,25 +50,35 @@ def interpolate_color(ratio, color1="FFFF00", color2="CE0000"):
 
     return interpolated_color
 
-def solve_multi_poly(polylines):
+def solve_multi_poly(polylines, output_path):
     """
     Solve multi polylines
     :param polylines: list of polylines with format [(northeast, southwest, [list of points], CO2m), ...]
      """
     final_poly = [] #safe polylines
-    while len(polylines) > 0:
-        print("n_poly = ",len(polylines))
-        polyline = polylines.pop(0) # remove first polyline
-        for potential_polyline in polylines:
-            polyline, new_segments = solve_poly(polyline, potential_polyline)
-            if len(new_segments) > 0:
-                polylines.remove(potential_polyline)
-            for new in new_segments:
-                polylines.append(new)
-            if len(polyline[2]) <= 0:
-                break
-        if len(polyline[2]) > 0:
-            final_poly.append(polyline)
+    with open(output_path, "w") as f:
+        f.write("northeast;southwest;points;CO2_gr_m;distance\n")
+
+        while len(polylines) > 0:
+            print("n_poly = ",len(polylines))
+            polyline = polylines.pop(0) # remove first polyline
+            for potential_polyline in polylines:
+                polyline, new_segments = solve_poly(polyline, potential_polyline)
+                if len(new_segments) > 0:
+                    polylines.remove(potential_polyline)
+                for new in new_segments:
+                    polylines.append(new)
+                if len(polyline[2]) <= 0:
+                    break
+            if len(polyline[2]) >= 2:
+                final_poly.append(polyline)
+                # write to file
+                for i, to_write in enumerate(polyline):
+                    f.write(str(to_write))
+                    if i < len(polyline) - 1:
+                        f.write(";")
+                f.write("\n")
+                f.flush()
     return final_poly
 
 def solve_poly(polyline, potential_polyline):
@@ -110,7 +111,7 @@ def solve_poly(polyline, potential_polyline):
         if point_B_found and point_A_found: # if common segment found
             polyline = [*get_northeast_southwest(pol[0]), pol[0], pol[1]]
             for new_point_segment in new:
-                if len(new_point_segment[0]) > 2: # if more than a single segment
+                if len(new_point_segment[0]) > 1: # if more than a single segment
                     new_segments.append([*get_northeast_southwest(new_point_segment[0]), new_point_segment[0], new_point_segment[1]])
             return polyline, new_segments
         elif point_A_found != point_B_found:
@@ -144,19 +145,20 @@ def make_segments(polyline, potential_polyline, point_A_poly_index, point_A_pote
     :param point_B_potential:
     :return:
     """
+    #TODO assert index order
     if point_A_poly_index == point_B_poly_index or point_A_potential_index == point_B_potential_index:
         return [polyline, CO2_poly], [] # just crossing no common segment
     else:
         # Up tp 4 segments
         # polyline = segment from beginning to point_A_poly
-        poly_points = [polyline[0:point_A_poly_index], CO2_poly]
-        new_point_segments = [[polyline[point_A_poly_index:point_B_poly_index], CO2_poly+CO2_potential],
+        poly_points = [polyline[point_A_poly_index:point_B_poly_index+1], CO2_poly+CO2_potential]
+        new_point_segments = [[polyline[0:point_A_poly_index+1], CO2_poly],
                                [polyline[point_B_poly_index:],CO2_poly],
-                               [potential_polyline[0:point_A_potential_index], CO2_potential],
+                               [potential_polyline[0:point_A_potential_index+1], CO2_potential],
                                [potential_polyline[point_B_potential_index:], CO2_potential]]
         return poly_points, new_point_segments
 
-def same_location(point, potential_point, error=0.1):#Approx 250m
+def same_location(point, potential_point, error=0.001):#Approx 250m
     """"
     Check if two points are the same
     :param point:

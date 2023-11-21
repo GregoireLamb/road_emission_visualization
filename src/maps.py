@@ -1,5 +1,6 @@
 import googlemaps
 from datetime import datetime, timedelta
+import polyline
 import pandas as pd
 
 class Maps:
@@ -20,7 +21,7 @@ class Maps:
         :param mode: One of "driving", "walking", "bicycling" or "transit"
         :return: arrival_date, delay
         """
-        encoded_polyline, directions_result = "", ""
+        decoded_polyline, directions_result = "", ""
         distance = 0
         try:
             directions_result = self.gmaps.directions(origin,
@@ -31,7 +32,10 @@ class Maps:
         except:
             print("No route found for origin: {} and destination: {}".format(origin, destination))
 
-        return distance, encoded_polyline, northeast, southwest
+        # decode decoded_polyline
+        decoded_polyline = polyline.decode(encoded_polyline)
+
+        return distance, decoded_polyline, northeast, southwest
 
     def parse_destinations(self, directions_result, save=True):
         """
