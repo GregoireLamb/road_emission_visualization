@@ -12,7 +12,7 @@ class Maps:
         else:
             print("Please enter your Google Maps API key in config.yaml")
 
-    def get_directions(self, origin, destination, departure_time=datetime.now(), mode="driving", save=True):
+    def get_directions(self, origin, destination, departure_time=datetime.now(), mode="driving", save=False):
         """
         Get arrival time from origin to destination
         :param origin: as Place_id
@@ -21,7 +21,7 @@ class Maps:
         :param mode: One of "driving", "walking", "bicycling" or "transit"
         :return: arrival_date, delay
         """
-        decoded_polyline, directions_result = "", ""
+        decoded_polyline, directions_result= "", ""
         distance = 0
         try:
             directions_result = self.gmaps.directions(origin,
@@ -29,11 +29,9 @@ class Maps:
                                                       mode=mode,
                                                       departure_time=departure_time)
             distance, encoded_polyline, northeast, southwest = self.parse_destinations(directions_result, save=save)
+            decoded_polyline = polyline.decode(encoded_polyline)
         except:
             print("No route found for origin: {} and destination: {}".format(origin, destination))
-
-        # decode decoded_polyline
-        decoded_polyline = polyline.decode(encoded_polyline)
 
         return distance, decoded_polyline, northeast, southwest
 
