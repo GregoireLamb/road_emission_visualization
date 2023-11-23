@@ -455,7 +455,7 @@ def remove_too_close_point(point_to_add, error):
 
 
 
-def draw_point_with_color(lat, long, CO2m, map, CO2m_max, CO2m_min, weight=5, CO2_no_m=False, radius=750):
+def draw_point_with_color(lat, long, CO2m, map, CO2m_max, CO2m_min, weight=5, CO2_no_m=False, radius=500, color1="", color2=""):
     """
     Draw point with color
     :param poly: polyline
@@ -466,7 +466,7 @@ def draw_point_with_color(lat, long, CO2m, map, CO2m_max, CO2m_min, weight=5, CO
     if CO2_no_m:
         return map
 
-    color = interpolate_color((CO2m-CO2m_min)/(CO2m_max-CO2m_min))
+    color = interpolate_color((CO2m-CO2m_min)/(CO2m_max-CO2m_min), color1=color1, color2=color2)
 
     folium.Circle(
         location=[lat, long],
