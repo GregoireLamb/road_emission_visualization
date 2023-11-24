@@ -1,8 +1,8 @@
-# Road emission visualization
+# Road emissions visualization
 
 ## Context 
 The aim of this project is to visualise the estimated CO2 emissions of 8k routes in Austria. 
-I m made this visulalisation for an autrian company with a very short deadline (the map had to be delivered 1.5 days after recieving the data). Therefor code is far from the optimal but the final result is convincing and fitted the needs. 
+I produced this visualisation for a consulting company in a very short space of time (the map had to be delivered 1.5 days after receiving the data). The code is therefore far from optimal but the end result is convincing and meets the requirements.
 
 ## Results
 
