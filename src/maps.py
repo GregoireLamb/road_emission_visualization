@@ -1,7 +1,6 @@
 import googlemaps
-from datetime import datetime, timedelta
+from datetime import datetime
 import polyline
-import pandas as pd
 
 class Maps:
     def __init__(self, api_key):

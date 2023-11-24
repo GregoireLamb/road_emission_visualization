@@ -1,13 +1,9 @@
 import ast
 import datetime
 import random as rnd
-from cmath import cos
 from datetime import datetime
-from math import radians
 
-import folium
-import pandas as pd
-import matplotlib.pyplot as plt
+from folium import plugins
 
 from src.config import Config
 from src.maps import Maps
@@ -122,7 +118,6 @@ def format_data_for_all_path(data_path="../data/poly_points_data.csv", output_pa
             f.write("\n")
     return 0
 
-
 def points_to_smart_points(data_path="../data/poly_points_data.csv", output_path="../data/final_points.csv"):
     """
     Convert points data to list of acctual point to draw (with info)
@@ -151,44 +146,7 @@ def points_to_smart_points(data_path="../data/poly_points_data.csv", output_path
             f.write(str(pt[0])+";"+str(pt[1])+";"+str(pt[2])+"\n")
     return 0
 
-
-
-def points_to_polyline_data(data_path="../data/poly_points_data.csv", output_path="../data/final_poly.csv"):
-    """
-    Convert points data to list of acctual polyline to draw (with info)
-    :param data: list of [(northeast, southwest, [list of points], CO2m), ...]
-    :return: the reduced non overlappong same set (northeast, southwest, [list of points], CO2m)
-    """
-    df = pd.read_csv(data_path, sep=";")
-    df['northeast'] = df['northeast'].apply(ast.literal_eval)
-    df['northeast'] = df['northeast'].apply(lambda x: (x['lat'], x['lng']))
-    df['southwest'] = df['southwest'].apply(ast.literal_eval)
-    df['southwest'] = df['southwest'].apply(lambda x: (x['lat'], x['lng']))
-    df['points'] = df['points'].apply(ast.literal_eval)
-    pd.to_numeric(df['CO2_gr'], errors='coerce')
-    pd.to_numeric(df['distance'], errors='coerce')
-    df['CO2_gr_m'] = df.apply(lambda row: row['CO2_gr']/row['distance'] if row['distance'] != 0 else 0, axis=1)
-
-    # transform data to list of [(northeast, southwest, [list of points], CO2m), ...]
-    df = df.to_dict(orient='records')
-    data=[]
-    print("Data transformed ")
-    for record in df:
-        data.append(list(record.values()))
-
-    final_poly = solve_multi_poly(data, output_path=output_path[:-4])
-
-    with open(output_path, "w") as f:
-        f.write("northeast;southwest;points;CO2_gr_m;distance\n")
-        for i, pol in enumerate(final_poly):
-            for j, to_write in enumerate(pol):
-                f.write(str(to_write))
-                if j < 4:
-                    f.write(";")
-            f.write("\n")
-    return final_poly
-
-def draw_points(data_path, map, radius=500, CO2_no_m=False, scale=1, split=100, split2=15):
+def draw_points(data_path, map, radius=500, scale=1, split=100, split2=15):
     df = pd.read_csv(data_path, sep=";")
     df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
     df['long'] = pd.to_numeric(df['long'], errors='coerce')
@@ -230,36 +188,7 @@ def draw_points(data_path, map, radius=500, CO2_no_m=False, scale=1, split=100, 
         map = draw_legend(min_val=split, max_val=max_CO2m, my_map=map, color1=orange, color2=red)
     return map
 
-def draw_polyline_data(data_path, map, CO2_no_m=False):
-    """
-    Draw polyline data
-    :param data: list of [(northeast, southwest, [list of points], CO2_gr/m), ...]
-    :return:
-    """
-    df = pd.read_csv(data_path, sep=";")
-
-    df["CO2_gr_m"] = (df['CO2_gr_m'] / 1e9).round(decimals=2) #convert to t_CO2/km
-    max_CO2m = df["CO2_gr_m"].max()
-    min_CO2m = df["CO2_gr_m"].min()
-
-    if max_CO2m == min_CO2m:
-        min_CO2m -= 1 #avoid division by 0
-
-    df['points'] = df['points'].apply(ast.literal_eval)
-
-    for i, row in df.iterrows():
-        if CO2_no_m:
-            map = draw_poly_with_color(poly=row["points"], CO2m=float(row["CO2_gr_m"]), map=map, CO2m_min=min_CO2m, CO2m_max=max_CO2m, CO2_no_m=CO2_no_m)
-        else:
-            map = draw_poly_with_color(poly=row["points"], CO2m=float(row["CO2_gr_m"]), map=map, CO2m_min=min_CO2m, CO2m_max=max_CO2m)
-
-    map = draw_legend(min_val=min_CO2m, max_val= max_CO2m, my_map=map)
-    return map
-
-import folium
-from branca.colormap import LinearColormap
-
-def draw_legend(min_val, max_val, my_map, second=False, title="Treibhausgasemissionen ", unit="Tonnen/Km", color1="FFFF00", color2="CE0000"):
+def draw_legend(min_val, max_val, my_map, title="Treibhausgasemissionen ", unit="Tonnen/Km", color1="FFFF00", color2="CE0000"):
     color1 = "#" + color1
     color2 = "#" + color2
     gradient_colormap = LinearColormap([color1, color2], vmin=min_val, vmax=max_val).to_step(25)
@@ -267,88 +196,11 @@ def draw_legend(min_val, max_val, my_map, second=False, title="Treibhausgasemiss
 
     gradient_colormap.add_to(my_map)
 
-    # legend_html = '''
-    #      <div style="position: fixed;
-    #                  bottom: 50px; left: 50px; width: 200px; height: 100px;
-    #                  border:2px solid grey; z-index:9999; font-size:14px;padding: 10px;">
-    #         <p><strong>{}</strong></p>
-    #         {}
-    #      </div>
-    # '''
-    #
-    # legend_html = legend_html.format(gradient_colormap.caption, gradient_colormap.caption)
-    #
-    # # Add the custom legend to the map
-    # my_map.get_root().html.add_child(folium.Element(legend_html))
-
     return my_map
 
-def visu_data(data_path):
-    df = pd.read_csv(data_path, sep=";")
-    df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
-    df['long'] = pd.to_numeric(df['long'], errors='coerce')
-    df["CO2_gr_m"] = (df['CO2_gr_m'] / 1e3).round(decimals=2)  # convert to t_CO2/km
-
-
-    print("*\n*Data exploration\n*\n")
-    print("The data set contains {} rows and {} columns a row correspond to a point on the map, the first value is its latitude, the second it's longitude and the last an estimation of the CO2 emissions at this point.\n".format(df.shape[0], df.shape[1]))
-
-    print("--Data head")
-    print(df.head())
-
-    print("--basic stats")
-    # print min max average of each columns in a table
-    print(df.describe())
-
-    # count the amount of zeros values in each column
-    print("n_zeros", df.isin([0]).sum())
-    # corrst line above
-    print("%of the data over 100 t_CO2/km: {:.2f}%".format(df[df["CO2_gr_m"] > 100].shape[0]*100/df.shape[0]))
-
-    # plot Co2 distribution
-    # hist = df["CO2_gr_m"].plot.hist(bins=100, alpha=0.5)
-    # hist.set_xlabel("CO2 emission (t_CO2/km)")
-    # hist.set_ylabel("Frequency")
-    # hist.set_title("CO2 emission distribution")
-    # # plt.savefig("CO2 emission distribution".replace(" ", "_") + ".png")
-    # plt.show()
-
-    # clear plt
-    # plt.clf()
-
-    # plot Co2 distribution limited by 100t_CO2/km
-    hist = df["CO2_gr_m"].plot.hist(bins=20, alpha=0.5, range=(0,100))
-    hist.set_xlabel("CO2 emission (t_CO2/km)")
-    hist.set_ylabel("Count")
-    hist.set_title("CO2 emission distribution limited by 100t_CO2/km")
-    # filename = "CO2_emission_distribution_limited_by_100t_CO2_km.png"
-    plt.savefig("CO2 emission distribution limited by 100t_CO2-km".replace(" ", "_") + ".png")
-    plt.show()
-
-    plt.clf()
-
-
-    # plot Co2 distribution limited by 100t_CO2/km
-    hist = df["CO2_gr_m"].plot.hist(bins=20, alpha=0.5, range=(0.0000001,100))
-    hist.set_xlabel("CO2 emission (t_CO2/km)")
-    hist.set_ylabel("Count")
-    hist.set_title("CO2 emission distribution limited by 100t_CO2-km whithout 0's")
-    plt.savefig("CO2 emission distribution limited by 100t_CO2-km whithout 0's".replace(" ", "_")+".png")
-    plt.show()
-
-    brief_eval = (" Few 0's (132 values) corresponding to approximation or error in the google maps response (can be explored)"
-                  " Lot's of very small points, should correspond to road used only a few times, some high values mostly found in big city having multiple station or to highway overlapping")
-
-    print("--brief evaluation")
-    print(brief_eval)
-
-    print("3 histograms have been plotted showing the CO2_T/km emissions distributions \n")
-    print("Grégoire de Lambertye")
-    return 0
-
-
 def main():
-    GO_ONLINE = True
+    GO_ONLINE = False # Prevent abusive usage of google maps API
+
     """
     Prepare object and environment
     """
@@ -356,48 +208,26 @@ def main():
     config = Config()
     result_path = config.RESULTS_PATH
     data_path = config.DATA_PATH
-    # map = Maps(config.MAPS_API_KEY)
-    # date_string = '2023-11-23 10:00:00.00'
-    # date_format = '%Y-%m-%d %H:%M:%S.%f'
-    # departure_date = datetime.strptime(date_string, date_format)
+    map = Maps(config.MAPS_API_KEY)
+    date_string = '2023-11-23 10:00:00.00'
+    date_format = '%Y-%m-%d %H:%M:%S.%f'
+    departure_date = datetime.strptime(date_string, date_format)
     map_vis = folium.Map(location=[47.654534189215525, 14.234224037285491], zoom_start=7, tiles="cartodbpositron")
 
     """
     Execute
     """
-    # one_degree_of_latitude_in_meters = 111000  # Approximately at the equator
-    # Calculate factor
-    # factor = cos(radians(48.0)) * 111000
-    # dif = 16.35274-16.33915 #long
-    # print("factor", factor)
-    # print("dif", dif*factor)
-    # print("dif 1km=", dif*factor)
-    # 0.15 = 1km
-
-    # list1 = [1,2,3,4,5,6,7,8,9,10]
-    #
-    # print(list1[0:0])
-    # print(list1[1:5])
-    # print(list1[5:])
-    # raw_to_smart_data(data_path1=data_path+"data_raw.xlsx", data_path2=data_path+"GPS.xlsx", output_path=data_path+"smart_data.csv")
-    # smart_to_points_data(data_path=data_path+"smart_data.csv", map=map, departure_date=departure_date, online=GO_ONLINE, output_path=data_path+"/poly_points_data_to_add.csv" )
-    # points_to_polyline_data(data_path=data_path+"poly_points_data.csv", output_path=data_path+"final_poly.csv")
-    # format_data_for_all_path(data_path=data_path+"poly_points_data.csv", output_path=data_path+"all_path.csv")
-    # map_vis = draw_polyline_data(data_path=data_path+"final_poly_step_5000.csv", map=map_vis, CO2_no_m=False) #OK
-    # points_to_smart_points(data_path=data_path+"poly_points_data.csv", output_path=data_path+"smart_points_data_d0015.csv")
+    raw_to_smart_data(data_path1=data_path+"data_raw.xlsx", data_path2=data_path+"GPS.xlsx", output_path=data_path+"smart_data.csv")
+    smart_to_points_data(data_path=data_path+"smart_data.csv", map=map, departure_date=departure_date, online=GO_ONLINE, output_path=data_path+"/poly_points_data_to_add.csv" )
+    format_data_for_all_path(data_path=data_path+"poly_points_data.csv", output_path=data_path+"all_path.csv")
+    points_to_smart_points(data_path=data_path+"poly_points_data.csv", output_path=data_path+"smart_points_data_d0015.csv")
     map_vis = draw_points(data_path=data_path+"smart_points_data_d0015.csv", map=map_vis, scale=3, split=100, split2=15)
     map_vis = draw_stations(data_path=data_path+"GPS.xlsx", map=map_vis)
-
-    from folium import plugins
     minimap = plugins.MiniMap(toggle_display=True, position='bottomright')
     map_vis.add_child(minimap)
 
-    # visu_data(data_path=data_path+"smart_points_data_d0015.csv")
-
-    # save the map_
-    # folium.TileLayer('Mapbox Bright').add_to(map_vis)
+    # save the map
     map_vis.save(result_path+"final_v3.html")
-
 
 
 if __name__ == "__main__":
