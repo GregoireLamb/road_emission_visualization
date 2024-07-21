@@ -2,7 +2,7 @@
 
 ## Context 
 The aim of this project is to visualise the estimated CO2 emissions of 8k routes in Austria. 
-I produced this visualisation for a consulting company in a very short space of time (the map had to be delivered 1.5 days after receiving the data). The code is therefore far from optimal but the end result is convincing and meets the requirements.
+I produced this visualisation for a consulting company in a very short space of time (the map had to be delivered within 2 days). The code is therefore far from optimal but the final result is convincing and meets the requirements.
 
 ## Results
 
